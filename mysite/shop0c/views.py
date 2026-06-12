@@ -1,17 +1,20 @@
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.generic import View
-from shop0c.models import User
-from shop0c.forms import LoginForm, RegistUserForm
+from shop0c.models import User, Item
+from shop0c.forms import LoginForm, RegistUserForm #,Search
+#from django.contrib.auth import logout
 
 # Create your views here.
 class Top(View):
     def get(self,request):
+        #form = Search()
         login_flag = request.session['is_login']
         name = request.session['name']
         context = {
             'login_flag':login_flag,
-            'name':name
+            'name':name,
+            #'form':form
         }
         return render(request,'shop0c/main.html',context)
     def post(self,request):
@@ -20,12 +23,59 @@ class Top(View):
             'login_flag':login_flag
         }
         return render(request,'shop0c/main.html',context)
-def result(request):
-    pass
-def detail(request):
-    pass
-def cart(request):
-    pass
+
+class Search(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+        category = request.POST['category']
+        keyword = request.POST['keyword']
+        category_map = {
+            'all':'すべて',
+            '1':'家電',
+            '2':'パソコン・周辺機器',
+            '3':'文房具',
+            '4':'キッチン用品',
+            '5':'スポーツ用品',
+            '6':'鞄',
+            '7':'帽子'
+        }
+
+        category_name = category_map[category]
+        if category != 'all':
+            if keyword:
+                queryset = Item.objects.filter(category=int(category), name__icontains=keyword)
+            else:
+                queryset = Item.objects.filter(category=int(category))
+        
+        else:
+            if keyword:
+                queryset = Item.objects.filter(name__icontains=keyword)
+            else:
+                queryset = Item.objects.all()
+        
+        context = {
+            'items':queryset,
+            'category':category,
+            'keyword':keyword,
+            'category_name':category_name
+        }
+
+        return render(request,'shop0c/searchResult.html',context)
+    
+class Detail(View):
+    def get(self, request, pk):
+        item = Item.objects.get(item_id=pk)
+        is_login = request.session['is_login']
+        context = {
+            'item':item,
+            'is_login':is_login
+        }
+
+        return render(request,'shop0c/itemDetail.html',context)
+
+    def post(self, request):
+        pass
 
 class Login(View):
     def get(self, request):
@@ -52,6 +102,7 @@ class Login(View):
                 request.session['user_id'] = user.user_id
                 request.session['password'] = user.password
                 request.session['name'] = user.name
+                request.session['address'] = user.address
                 request.session['is_login'] = True
                 
                 return redirect(reverse('shop0c:main'))
@@ -62,7 +113,11 @@ class Login(View):
 class Logout(View):
     def get(self, request):
         request.session['is_login'] = False
-        return redirect(reverse('shop0c:main'))
+        request.session['user_id'] = ''
+        request.session['password'] = ''
+        request.session['name'] = ''
+        request.session['address'] = ''
+        return redirect(reverse('shop0c:login'))
 
 class Register(View):
     def get(self, request):
@@ -112,13 +167,101 @@ class Confirmregister(View):
             'name':name
         }
         return render(request, 'shop0c/registerUserCommit.html',context)
+    
+class UserInfo(View):
+    def get(self,request):
+        user_id = request.session['user_id']
+        password = request.session['password']
+        name = request.session['name']
+        address = request.session['address']
 
-def commit(request):
-    pass
-def info(request):
-    pass
-def update_user(request):
-    pass
+        context = {
+            'user_id':user_id,
+            'password':password,
+            'name':name,
+            'address':address
+        }
+
+        return render(request,'shop0c/userInfo.html',context)
+
+    def post(self,request):
+        pass
+
+class UpdateUser(View):
+    def get(self, request):
+        user_id = request.session['user_id']
+        password = request.session['password']
+        name = request.session['name']
+        address = request.session['address']
+
+        form = RegistUserForm()
+        form.fields['id'].initial = user_id
+        form.fields['name'].initial = name
+        form.fields['address'].initial = address
+
+        context = {
+            'form':form
+        }
+
+        return render(request,'shop0c/updateUser.html',context)
+    def post(self, request):
+        pass
+
+class UpdateUserConfirm(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+
+        old_user = User.objects.get(user_id=request.session['user_id'])
+        old_user.delete()
+
+
+        new_user = User()
+        
+        new_user.user_id = request.POST['id']
+        new_user.password = request.POST['password']
+        new_user.name = request.POST['name']
+        new_user.address = request.POST['address']
+
+        new_user.save()
+
+        request.session['user_id'] = new_user.user_id
+        request.session['password'] = new_user.password
+        request.session['name'] = new_user.name
+        request.session['address'] = new_user.address
+        request.session['is_login'] = True
+
+        context = {
+            'user_id':request.session['user_id'],
+            'name':request.session['name'],
+            'address':request.session['address']
+        }
+
+        return render(request,'shop0c/updateUserCommit.html',context)
+
+
+
+class Delete(View):
+    def get(self, request):
+        name = request.session['name']
+        context = {
+            'name':name
+        }
+        return render(request,'shop0c/withdrawConfirm.html', context)
+
+    def post(self, request):
+        print(request.session['user_id'])
+        user = User.objects.get(user_id=request.session['user_id'])
+        name = user.name
+        context = {
+            'name':name
+        }
+        user.delete()
+        request.session['is_login'] = False
+        return render(request,'shop0c/withdrawCommit.html',context)
+
+
+
 def update_confirm(request):
     pass
 def update_commit(request):
