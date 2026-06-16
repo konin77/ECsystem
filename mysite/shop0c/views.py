@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.generic import View
-from shop0c.models import User, Item, Shopcart
+from shop0c.models import User, Item, Shopcart, Purchase, Detail
 from shop0c.forms import LoginForm, RegistUserForm ,UpdateUserForm
 #from django.contrib.auth import logout
 
@@ -67,7 +67,7 @@ class Search(View):
 
         return render(request,'shop0c/searchResult.html',context)
     
-class Detail(View):
+class Detailuesr(View):
     def get(self, request, pk):
         item = Item.objects.get(item_id=pk)
         is_login = request.session.get('is_login')
@@ -166,7 +166,7 @@ class Modifycart(View):
 
     def post(self, request):
         id = request.POST['modify']
-        cart = Shopcart.objects.filter(id=id)
+        cart = Shopcart.objects.get(id=id)
         context = {
             'cart':cart,
             'id':id
@@ -174,6 +174,17 @@ class Modifycart(View):
 
         return render(request,'shop0c/modifycart.html',context)
         
+class Updatecart(View): 
+    def get(self, request):
+        pass
+    def post(self, request):
+        id = request.POST['id']
+        amount = request.POST['amount']
+        cart = Shopcart.objects.get(id=id)
+        cart.amount = amount
+        cart.save()
+        return redirect(reverse('shop0c:cart'))
+
 
 class Login(View):
     def get(self, request):
@@ -202,7 +213,7 @@ class Login(View):
                     request.session['address'] = user.address
                     request.session['is_login'] = True
                 
-                    return redirect(reverse('shop0c:main'))
+                    return redirect(reverse('shop0c:'))
 
         s = '会員IDかパスワードが間違っています'
         form = LoginForm()
@@ -395,3 +406,61 @@ class Delete(View):
         user.delete()
         request.session['is_login'] = False
         return render(request,'shop0c/withdrawCommit.html',context)
+
+
+class Purchase_cart(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+        sum = request.POST['sum']
+        new_purchase = Purchase()
+        user = User.objects.get(user_id=request.session.get('user_id'))
+        max_id_o = Purchase.objects.order_by('-Purchase_id').first()
+        max_id = int(max_id_o.Purchase_id)+1
+        new_purchase.Purchase_id = max_id
+        new_purchase.destination = user.address
+        new_purchase.user = user
+        new_purchase.save()
+
+        carts = Shopcart.objects.filter(user=user)
+        details = []
+        print(carts)
+        for cart in carts:
+
+            new_detail = Detail()
+            max_id_o = Detail.objects.order_by('-purchase_detail_id').first()
+            max_id = int(max_id_o.purchase_detail_id)+10
+            new_detail.purchase_detail_id = max_id
+            new_detail.amount = cart.amount
+            new_detail.Purchase = new_purchase
+            new_detail.item = cart.item
+            cart.delete()
+            new_detail.save()
+            details.append(new_detail)
+        
+
+        print(details)
+        context = {
+            'new_purchase':new_purchase,
+            'details':details,
+            'sum':sum,
+            #'item':item,
+        }
+
+        details = []
+        return render(request,'shop0c/purchase.html',context)
+    
+class Updatedestination(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+        destination = request.POST['destination']
+        purchase_id = request.POST['purchase_id']
+        purchase = Purchase.objects.get(Purchase_id=purchase_id)
+        purchase.destination = destination
+        purchase.save()
+        context = {
+            'destination':destination
+        }
+
+        return render(request,'shop0c/updatedestination.html',context)
