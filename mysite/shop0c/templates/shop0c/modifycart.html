@@ -4,39 +4,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品詳細</title>
+    <title>商品数修正</title>
     <link rel="stylesheet" type="text/css" href="{% static 'table.css' %}"/>
 </head>
 <body>
-    <h1>商品の詳細表示</h1>
+    <h1>商品の購入数修正</h1>
     <table>
         <tr>
             <th>商品名</th>
-            <td>{{item.name}}</td>
+            <td>{{cart.item.name}}</td>
         </tr>
         <tr>
             <th>商品の色</th>
-            <td>{{item.color}}</td>
+            <td>{{cart.item.color}}</td>
         </tr>
         <tr>
             <th>メーカー名</th>
-            <td>{{item.manufacturer}}</td>
+            <td>{{cart.item.manufacturer}}</td>
         </tr>
         <tr>
             <th>価格</th>
-            <td>{{item.price}}</td>
+            <td>{{cart.item.price}}</td>
         </tr>
         <tr>
             <th>在庫数</th>
-            <td>{{item.stock}}</td>
+            <td>{{cart.item.stock}}</td>
         </tr>
     </table>
-    {% if is_login == True %}
-    <form action="{% url 'shop0c:cart' %}" method="POST">
-    {% else %}
-    <form action="{% url 'shop0c:login' %}" method="GET">
-    {% endif %}
-        <input type="hidden" name="item_id" value="{{item.item_id}}">
+    
+    <form action="{% url 'shop0c:modifycart' %}" method="GET">
+    
+        <input type="hidden" name="id" value="{{id}}">
         <label for="amounts">数量：</label>
             <select name="amount" id="amounts">
                 <option value="1" selected>1</option>
@@ -51,7 +49,7 @@
             </select>
             <input type="submit" value="ショッピングカートに入れる">
     </form>
-    <p>※ログインしていない状態では、ボタンのクリック後、<a href="{% url 'shop0c:login' %}">ログイン画面</a>に転送される。</p>
+    
 </body>
 <a href="{% url 'shop0c:main' %}">商品検索へ</a>
 </html>

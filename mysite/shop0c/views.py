@@ -2,15 +2,19 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.generic import View
 from shop0c.models import User, Item, Shopcart
-from shop0c.forms import LoginForm, RegistUserForm #,Search
+from shop0c.forms import LoginForm, RegistUserForm ,UpdateUserForm
 #from django.contrib.auth import logout
 
 # Create your views here.
+
+def index(request):
+    return render(request,'shop0c/index.html')
+
 class Top(View):
     def get(self,request):
         #form = Search()
-        login_flag = request.session['is_login']
-        name = request.session['name']
+        login_flag = request.session.get('is_login')
+        name = request.session.get('name')
         context = {
             'login_flag':login_flag,
             'name':name,
@@ -18,7 +22,7 @@ class Top(View):
         }
         return render(request,'shop0c/main.html',context)
     def post(self,request):
-        login_flag = request.session['is_login']
+        login_flag = request.session.get('is_login')
         context = {
             'login_flag':login_flag
         }
@@ -66,7 +70,7 @@ class Search(View):
 class Detail(View):
     def get(self, request, pk):
         item = Item.objects.get(item_id=pk)
-        is_login = request.session['is_login']
+        is_login = request.session.get('is_login')
         context = {
             'item':item,
             'is_login':is_login
@@ -79,25 +83,97 @@ class Detail(View):
 
 class Cart(View):
     def get(self, request):
-        pass
-    def post(self, request):
-        amount = request.POST['amount']
-        item_id = request.POST['item_id']
-        user_id = request.session['user_id']
-        new_cart = Shopcart()
-        item = Item.objects.get(item_id=item_id)
+
+        user_id = request.session.get('user_id')
+        items = Item.objects.all()
         user = User.objects.get(user_id=user_id)
-        new_cart.amount = amount
-        new_cart.item = item
-        new_cart.user = user
-        new_cart.save()
+        carts = Shopcart.objects.filter(user=user)
+
+        sum = 0
+        for cart in carts:
+            sum += cart.amount*cart.item.price
+
+
 
         #carts = Shopcart.objects.get(user=user_id)
         context = {
-            'carts':new_cart,
+            'carts':carts,
+            'item':items,
+            'sum':sum
         }
 
         return render(request,'shop0c/cart.html',context)
+
+
+    def post(self, request):
+        amount = request.POST['amount']
+        item_id = request.POST['item_id']
+        user_id = request.session.get('user_id')
+        item = Item.objects.get(item_id=item_id)
+        user = User.objects.get(user_id=user_id)
+
+        if Shopcart.objects.filter(item=item, user=user):
+            print('a')
+            cart = Shopcart.objects.get(item=item, user=user)
+            cart.amount += int(amount)
+            cart.save()
+
+        else:
+            print('b')
+            new_cart = Shopcart()
+            new_cart.amount = amount
+            new_cart.item = item
+            new_cart.user = user
+            new_cart.save()
+
+        items = Item.objects.all()
+        carts = Shopcart.objects.filter(user=user)
+
+        sum = 0
+        for cart in carts:
+            sum += cart.amount*cart.item.price
+
+        #carts = Shopcart.objects.get(user=user_id)
+        context = {
+            'carts':carts,
+            'item':items,
+            'sum':sum
+        }
+
+        return render(request,'shop0c/cart.html',context)
+
+class Deletecart(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+        id = request.POST['delete']
+        cart = Shopcart.objects.get(id=id)
+        cart.delete()
+
+        return redirect(reverse('shop0c:cart'))
+    
+class Modifycart(View):
+    def get(self, request):
+        pass
+        '''
+        id = request.GET['id']
+        amount = request.GET['amount']
+        cart = Shopcart.objects.get(id=id)
+        cart.amount = amount
+
+        return redirect(reverse('shop0c:cart'))
+        '''
+
+    def post(self, request):
+        id = request.POST['modify']
+        cart = Shopcart.objects.filter(id=id)
+        context = {
+            'cart':cart,
+            'id':id
+        }
+
+        return render(request,'shop0c/modifycart.html',context)
+        
 
 class Login(View):
     def get(self, request):
@@ -128,8 +204,13 @@ class Login(View):
                 
                     return redirect(reverse('shop0c:main'))
 
-            
-        return redirect(reverse('shop0c:login'))
+        s = '会員IDかパスワードが間違っています'
+        form = LoginForm()
+        context = {
+            's':s,
+            'form':form
+        }
+        return render(request, 'shop0c/login.html', context)
 
 class Logout(View):
     def get(self, request):
@@ -154,6 +235,7 @@ class Register(View):
         if not form.is_valid():
             context = {
                 "form":form,
+                "errors":form.errors
             }
             return render(request, 'shop0c/registerUser.html', context)
         
@@ -174,6 +256,7 @@ class Confirmregister(View):
         }
         return render(request, 'shop0c/registerUser.html', context)
     def post(self, request):
+
         new_user = User()
 
         new_user.user_id = request.POST['id']
@@ -191,10 +274,10 @@ class Confirmregister(View):
     
 class UserInfo(View):
     def get(self,request):
-        user_id = request.session['user_id']
-        password = request.session['password']
-        name = request.session['name']
-        address = request.session['address']
+        user_id = request.session.get('user_id')
+        password = request.session.get('password')
+        name = request.session.get('name')
+        address = request.session.get('address')
 
         context = {
             'user_id':user_id,
@@ -210,23 +293,55 @@ class UserInfo(View):
 
 class UpdateUser(View):
     def get(self, request):
-        user_id = request.session['user_id']
-        password = request.session['password']
-        name = request.session['name']
-        address = request.session['address']
+        user_id = request.session.get('user_id')
+        password = request.session.get('password')
+        name = request.session.get('name')
+        address = request.session.get('address')
 
-        form = RegistUserForm()
-        form.fields['id'].initial = user_id
+        form = UpdateUserForm()
+        #form.fields['id'].initial = user_id
         form.fields['name'].initial = name
         form.fields['address'].initial = address
 
         context = {
-            'form':form
+            'form':form,
+            'user_id':user_id
         }
 
-        return render(request,'shop0c/updateUser.html',context)
+        return render(request, 'shop0c/updateUser.html', context)
+
     def post(self, request):
         pass
+
+class UpdateConfirm(View):
+    def get(self, request):
+        pass
+    def post(self, request):
+
+        form = UpdateUserForm(request.POST)
+        if not form.is_valid():
+
+            user_id = request.session.get('user_id')
+            context = {
+                "form":form,
+                "errors":form.errors,
+                "user_id":user_id
+            }
+            return render(request, 'shop0c/updateUser.html', context)
+
+        user_id = request.session.get('user_id')
+        password = request.POST['password']
+        name = request.POST['name']
+        address = request.POST['address']
+
+        context = {
+            'user_id':user_id,
+            'password':password,
+            'name':name,
+            'address':address
+        }
+
+        return render(request,'shop0c/updateUserConfirm.html',context)
 
 class UpdateUserConfirm(View):
     def get(self, request):
@@ -239,7 +354,7 @@ class UpdateUserConfirm(View):
 
         new_user = User()
         
-        new_user.user_id = request.POST['id']
+        new_user.user_id = request.session.get('user_id')
         new_user.password = request.POST['password']
         new_user.name = request.POST['name']
         new_user.address = request.POST['address']
@@ -253,9 +368,9 @@ class UpdateUserConfirm(View):
         request.session['is_login'] = True
 
         context = {
-            'user_id':request.session['user_id'],
-            'name':request.session['name'],
-            'address':request.session['address']
+            'user_id':request.session.get('user_id'),
+            'name':request.session.get('name'),
+            'address':request.session.get('address')
         }
 
         return render(request,'shop0c/updateUserCommit.html',context)
@@ -264,15 +379,15 @@ class UpdateUserConfirm(View):
 
 class Delete(View):
     def get(self, request):
-        name = request.session['name']
+        name = request.session.get('name')
         context = {
             'name':name
         }
         return render(request,'shop0c/withdrawConfirm.html', context)
 
     def post(self, request):
-        print(request.session['user_id'])
-        user = User.objects.get(user_id=request.session['user_id'])
+        print(request.session.get('user_id'))
+        user = User.objects.get(user_id=request.session.get('user_id'))
         name = user.name
         context = {
             'name':name
